@@ -221,9 +221,6 @@
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 
-  /* ============================================================
-     ПРЕДУПРЕЖДЕНИЕ О НАГРУЗКЕ
-     ============================================================ */
   .perf-warning{
     position:fixed;inset:0;z-index:100;
     display:flex;align-items:center;justify-content:center;
@@ -488,9 +485,6 @@
   <span style="font-size:12px;opacity:.55">Вода течёт, песок сыпется, огонь поджигает горючее</span>
 </div>
 
-<!-- ============================================================
-     ПРЕДУПРЕЖДЕНИЕ О НАГРУЗКЕ
-     ============================================================ -->
 <div class="perf-warning" id="perfWarning">
   <div class="perf-card">
     <div class="perf-icon">⚠</div>
@@ -651,6 +645,7 @@ const PAL = [];
 })();
 
 const BG = (255<<24)|(14<<16)|(11<<8)|11;
+const BG_CSS = '#0b0b0e';
 const AMBIENT = 20;
 
 const cvs = document.getElementById('c');
@@ -668,6 +663,14 @@ let perfPaused = false;
 let brushSize = 3;
 let currentEl = E.SAND;
 let heatView = false;
+
+/* ============================================================
+   СОСТОЯНИЕ МИРА (для быстрого скипа симуляции)
+   ============================================================ */
+let worldEmpty = true;    // вся сетка пуста?
+let heatActive = false;   // есть ли ненулевая температура?
+let scanCounter = 0;
+const SCAN_INTERVAL = 30; // сканировать раз в ~0.5 сек
 
 /* ============================================================
    РАЗМЕР
@@ -708,8 +711,36 @@ function resize(){
   gbuf = new Uint32Array(gimg.data.buffer);
 
   for(let i=0;i<N;i++) rnd[i] = (Math.random()*256)|0;
+
+  // После resize мир пуст
+  worldEmpty = true;
+  heatActive = false;
+  scanCounter = SCAN_INTERVAL + 1;
 }
 
+/* ============================================================
+   ПЕРИОДИЧЕСКИЙ СКАН МИРА
+   Проверяем: есть ли частицы и есть ли тепло.
+   ============================================================ */
+function scanWorld(){
+  let anyParticles = false;
+  let anyHeat = false;
+  const HIGH = AMBIENT + 3;
+  const LOW  = AMBIENT - 3;
+
+  for(let i = 0; i < N; i++){
+    if(grid[i] !== E.EMPTY) anyParticles = true;
+    const T = temp[i];
+    if(T > HIGH || T < LOW) anyHeat = true;
+    if(anyParticles && anyHeat) break;
+  }
+  worldEmpty = !anyParticles;
+  heatActive = anyHeat;
+}
+
+/* ============================================================
+   ДВИЖЕНИЕ
+   ============================================================ */
 const DX = [0,0,-1,1];
 const DY = [-1,1,0,1];
 
@@ -865,6 +896,9 @@ function explodeAt(cx,cy,r,type){
       rnd[j] = (Math.random()*256)|0;
     }
   }
+  // Взрыв порождает тепло и частицы
+  heatActive = true;
+  worldEmpty = false;
 }
 
 function tryIgniteNeighbor(j, sourceTemp){
@@ -1215,6 +1249,26 @@ const HEAT_TMAX = 900;
 const HEAT_RANGE = HEAT_TMAX - HEAT_TMIN;
 
 function render(){
+  // ============================================================
+  // БЫСТРЫЙ ПУТЬ: пустой мир без тепла — просто заливаем фон
+  // ============================================================
+  if(worldEmpty && !heatActive && !heatView){
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    ctx.fillStyle = BG_CSS;
+    ctx.fillRect(0, 0, cvsW, cvsH);
+
+    if(mouseInside && !IS_TOUCH){
+      ctx.beginPath();
+      ctx.arc(mouseX, mouseY, Math.max(2, brushSize*SCALE), 0, Math.PI*2);
+      ctx.strokeStyle = 'rgba(255,255,255,.30)';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+    return;
+  }
+
   const fr = frame;
 
   if(heatView){
@@ -1292,6 +1346,9 @@ function render(){
   }
 }
 
+/* ============================================================
+   ВВОД
+   ============================================================ */
 let mouseInside = false;
 let mouseX = 0, mouseY = 0;
 let painting = false;
@@ -1320,9 +1377,20 @@ function setCell(i, t){
   life[i] = 0;
   dispX[i] = 0;
   const p = P[t];
-  if(p.emitTemp !== undefined) temp[i] = p.emitTemp;
-  else if(p.startTemp !== undefined) temp[i] = p.startTemp;
-  else temp[i] = AMBIENT;
+
+  // Обновляем состояние мира
+  if(t !== E.EMPTY){
+    worldEmpty = false;
+  }
+  if(p.emitTemp !== undefined){
+    temp[i] = p.emitTemp;
+    heatActive = true;
+  } else if(p.startTemp !== undefined){
+    temp[i] = p.startTemp;
+    heatActive = true;
+  } else {
+    temp[i] = AMBIENT;
+  }
   if(p.life !== undefined) life[i] = p.life;
 }
 
@@ -1423,6 +1491,9 @@ window.addEventListener('keydown', e=>{
   }
 });
 
+/* ============================================================
+   UI
+   ============================================================ */
 const UI_ELEMENTS = [
   E.SAND, E.SNOW, E.GUNPOWDER, E.FIREWORK, E.ASH, E.SALT,
   E.WATER, E.OIL, E.ACID, E.LAVA, E.MERCURY, E.ALCOHOL, E.LN2,
@@ -1601,10 +1672,10 @@ function countParts(){
 /* ============================================================
    ПРЕДУПРЕЖДЕНИЕ О НАГРУЗКЕ
    ============================================================ */
-const FPS_DANGER = 15;         // порог срабатывания
-const FPS_SAMPLES_TO_TRIGGER = 2; // сколько подряд низких замеров нужно
+const FPS_DANGER = 15;
+const FPS_SAMPLES_TO_TRIGGER = 2;
 let lowFpsSamples = 0;
-let perfCooldownUntil = 0;     // до какого времени не триггерим снова
+let perfCooldownUntil = 0;
 
 function triggerPerfPause(currentFps){
   perfPaused = true;
@@ -1618,7 +1689,6 @@ function triggerPerfPause(currentFps){
 function resumeFromPerf(){
   perfPaused = false;
   lowFpsSamples = 0;
-  // Даём симуляции 4 секунды спокойной работы, прежде чем снова триггерить
   perfCooldownUntil = performance.now() + 4000;
   perfWarning.classList.remove('show');
   fpsEl.classList.remove('danger');
@@ -1627,32 +1697,40 @@ function resumeFromPerf(){
 
 perfContinue.addEventListener('click', resumeFromPerf);
 
-perfClear.addEventListener('click', ()=>{
-  // очищаем мир, снимаем паузу нагрузки
-  grid.fill(0); life.fill(0); dispX.fill(0);
-  temp.fill(AMBIENT); tempNext.fill(AMBIENT);
+/* ============================================================
+   ПОЛНАЯ ОЧИСТКА МИРА
+   ============================================================ */
+function clearWorld(msg){
+  // Очищаем все буферы
+  grid.fill(0);
+  life.fill(0);
+  dispX.fill(0);
+  temp.fill(AMBIENT);
+  tempNext.fill(AMBIENT);
   frame = 0;
-  resumeFromPerf();
+
+  // Помечаем мир как пустой и без тепла — симуляция будет пропускаться
+  worldEmpty = true;
+  heatActive = false;
+  scanCounter = SCAN_INTERVAL + 1;
+
+  // Сбрасываем счётчик медленных кадров
+  lowFpsSamples = 0;
+
+  // Если открыто окно нагрузки — закрываем
+  if(perfPaused) resumeFromPerf();
+
   if(navigator.vibrate) try{ navigator.vibrate(14); }catch(_){}
-  showToast('Мир очищен, продолжаем');
-});
+  showToast(msg || 'Мир очищен');
+}
+
+btnClear.addEventListener('click', ()=>clearWorld());
+mClear.addEventListener('click', ()=>{ clearWorld(); closeMenu(); });
+perfClear.addEventListener('click', ()=>{ clearWorld('Мир очищен, продолжаем'); });
 
 /* ============================================================
-   ОЧИСТКА
+   ПОЛНЫЙ ЭКРАН
    ============================================================ */
-function clearWorld(){
-  grid.fill(0); life.fill(0); dispX.fill(0);
-  temp.fill(AMBIENT); tempNext.fill(AMBIENT);
-  frame = 0;
-  // если открыто окно нагрузки — закрываем
-  if(perfPaused) resumeFromPerf();
-  lowFpsSamples = 0;
-  if(navigator.vibrate) try{ navigator.vibrate(14); }catch(_){}
-  showToast('Мир очищен');
-}
-btnClear.addEventListener('click', clearWorld);
-mClear.addEventListener('click', ()=>{ clearWorld(); closeMenu(); });
-
 function toggleFullscreen(){
   const el = document.documentElement;
   if(!document.fullscreenElement && !document.webkitFullscreenElement){
@@ -1668,6 +1746,9 @@ mFull.addEventListener('click', ()=>{ toggleFullscreen(); closeMenu(); });
 document.addEventListener('fullscreenchange', ()=>{ setTimeout(resize, 120); });
 document.addEventListener('webkitfullscreenchange', ()=>{ setTimeout(resize, 120); });
 
+/* ============================================================
+   ПОДЕЛИТЬСЯ
+   ============================================================ */
 async function shareWorld(){
   const shareData = {
     title: 'Песочница — Sandbox',
@@ -1698,6 +1779,9 @@ async function shareWorld(){
 btnShare.addEventListener('click', shareWorld);
 mShare.addEventListener('click', ()=>{ shareWorld(); closeMenu(); });
 
+/* ============================================================
+   ТЕПЛОВИЗОР
+   ============================================================ */
 function toggleHeat(){
   heatView = !heatView;
   btnHeat.classList.toggle('active', heatView);
@@ -1707,6 +1791,9 @@ function toggleHeat(){
 btnHeat.addEventListener('click', toggleHeat);
 mHeat.addEventListener('click', ()=>{ toggleHeat(); closeMenu(); });
 
+/* ============================================================
+   МЕНЮ
+   ============================================================ */
 function openMenu(){
   menuPanel.classList.add('show');
   menuBtn.classList.add('active');
@@ -1739,17 +1826,29 @@ function loop(now){
   let dt = now - lastTime; lastTime = now;
   if(dt > 120) dt = 120;
 
-  // Симуляция идёт только если пользователь не поставил на паузу
-  // и не сработало авто-предупреждение о нагрузке
   const simActive = !paused && !perfPaused;
+
+  // Периодический скан мира (пусто / есть тепло) — раз в SCAN_INTERVAL кадров
+  if(--scanCounter <= 0){
+    scanCounter = SCAN_INTERVAL;
+    if(simActive){
+      scanWorld();
+    }
+  }
 
   acc += dt;
   let steps = 0;
   const maxSteps = N > 800000 ? 1 : (IS_TOUCH ? 2 : 3);
   while(acc >= STEP && steps < maxSteps){
     if(simActive){
-      diffuseHeat();
-      simulate();
+      // Полностью пустой мир — симуляция не нужна
+      if(!worldEmpty){
+        simulate();
+      }
+      // Диффузия тепла — только если есть что диффундировать
+      if(heatActive){
+        diffuseHeat();
+      }
     }
     acc -= STEP; steps++;
   }
@@ -1767,7 +1866,6 @@ function loop(now){
     fpsEl.textContent = fps + ' FPS';
     fpsCount = 0; fpsTimer = 0;
 
-    // Окрашиваем индикатор FPS
     fpsEl.classList.remove('warn', 'danger');
     if(fps < FPS_DANGER && !paused && !perfPaused){
       fpsEl.classList.add('danger');
@@ -1775,15 +1873,11 @@ function loop(now){
       fpsEl.classList.add('warn');
     }
 
-    // Логика автопаузы
     if(perfPaused){
-      // уже на паузе — счётчики не трогаем
       lowFpsSamples = 0;
     } else if(paused){
-      // ручная пауза — не триггерим
       lowFpsSamples = 0;
     } else if(now < perfCooldownUntil){
-      // период остывания после "Продолжить"
       lowFpsSamples = 0;
     } else if(fps < FPS_DANGER){
       lowFpsSamples++;
