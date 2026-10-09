@@ -1,0 +1,1832 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#05060a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Песочница — Sandbox</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+  html,body{
+    height:100%;height:100dvh;overflow:hidden;background:#05060a;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,Arial,sans-serif;
+    -webkit-tap-highlight-color:transparent;touch-action:none;overscroll-behavior:none;
+    position:fixed;inset:0;
+  }
+  #c{display:block;width:100vw;height:100vh;height:100dvh;cursor:crosshair;touch-action:none}
+  #vig{position:fixed;inset:0;pointer-events:none;z-index:5;
+    background:radial-gradient(ellipse at 50% 55%,rgba(0,0,0,0) 55%,rgba(0,0,0,.5) 100%);}
+
+  .topbar{
+    position:fixed;top:0;left:0;right:0;z-index:12;
+    padding:calc(6px + env(safe-area-inset-top,0px)) calc(10px + env(safe-area-inset-right,0px))
+            6px calc(10px + env(safe-area-inset-left,0px));
+    background:linear-gradient(180deg, rgba(10,12,20,.92) 0%, rgba(10,12,20,.78) 70%, rgba(10,12,20,0) 100%);
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+    border-bottom:1px solid rgba(255,255,255,.05);
+    display:flex;align-items:center;gap:10px;min-height:56px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;flex:0 0 auto}
+  .brand-dot{
+    width:22px;height:22px;border-radius:7px;
+    background:conic-gradient(from 220deg, #7db4ff, #c58bff 30%, #ff8f6b 55%, #ffd060 75%, #7db4ff 100%);
+    box-shadow:0 0 14px rgba(140,120,255,.5), inset 0 0 0 1px rgba(255,255,255,.18);
+    flex:0 0 auto;
+  }
+  .brand-text{display:flex;align-items:baseline;gap:8px;flex:0 0 auto}
+  .brand-title{
+    font-size:11px;font-weight:800;letter-spacing:.2em;
+    background:linear-gradient(90deg,#7db4ff,#c58bff 60%,#ff8f6b);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    white-space:nowrap;
+  }
+  .brand-fps{
+    font-size:10px;color:#6d778a;font-variant-numeric:tabular-nums;
+    padding:2px 7px;border-radius:6px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.06);
+    white-space:nowrap;
+    transition:color .25s, background .25s, border-color .25s;
+  }
+  .brand-fps.warn{
+    color:#ffc878;
+    background:rgba(255,170,60,.12);
+    border-color:rgba(255,170,60,.35);
+  }
+  .brand-fps.danger{
+    color:#ff7878;
+    background:rgba(255,80,80,.15);
+    border-color:rgba(255,80,80,.45);
+    animation:pulseFps 1.2s ease-in-out infinite;
+  }
+  @keyframes pulseFps{
+    0%,100%{box-shadow:0 0 0 0 rgba(255,80,80,0)}
+    50%{box-shadow:0 0 12px 2px rgba(255,80,80,.35)}
+  }
+
+  .topbar-spacer{flex:1}
+  .toolbar{display:flex;align-items:center;gap:6px;flex:0 0 auto}
+  .tbtn{
+    width:38px;height:38px;border-radius:11px;
+    border:1px solid rgba(255,255,255,.09);
+    background:rgba(255,255,255,.05);color:#cfd6e6;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:.16s;font-family:inherit;font-size:16px;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  }
+  .tbtn:hover{background:rgba(255,255,255,.13);color:#fff}
+  .tbtn:active{background:rgba(255,255,255,.2);transform:scale(.94)}
+  .tbtn.active{
+    background:linear-gradient(135deg, rgba(255,110,60,.4), rgba(255,180,60,.35));
+    border-color:rgba(255,150,70,.65);color:#fff;
+    box-shadow:0 0 16px rgba(255,140,60,.45);
+  }
+  .tbtn svg{width:18px;height:18px}
+
+  .menu-wrap{position:relative;display:none}
+  .menu-btn{
+    width:38px;height:38px;border-radius:11px;
+    border:1px solid rgba(255,255,255,.09);
+    background:rgba(255,255,255,.05);color:#cfd6e6;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    transition:.16s;touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+  }
+  .menu-btn:hover{background:rgba(255,255,255,.13);color:#fff}
+  .menu-btn svg{width:18px;height:18px}
+  .menu-btn.active{background:rgba(110,160,255,.25);border-color:rgba(130,180,255,.55);color:#fff}
+  .menu-panel{
+    position:absolute;top:calc(100% + 8px);right:0;min-width:210px;
+    background:rgba(18,21,32,.96);
+    -webkit-backdrop-filter:blur(20px);backdrop-filter:blur(20px);
+    border:1px solid rgba(255,255,255,.1);border-radius:14px;
+    box-shadow:0 20px 50px rgba(0,0,0,.65);
+    padding:6px;display:flex;flex-direction:column;gap:2px;
+    opacity:0;transform:translateY(-8px) scale(.96);
+    transform-origin:top right;pointer-events:none;
+    transition:opacity .18s, transform .18s;z-index:30;
+  }
+  .menu-panel.show{opacity:1;transform:translateY(0) scale(1);pointer-events:auto}
+  .menu-item{
+    display:flex;align-items:center;gap:10px;
+    padding:10px 12px;border-radius:9px;
+    color:#c3cbdd;font-size:13px;font-weight:500;
+    cursor:pointer;transition:.13s;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+    background:transparent;border:none;font-family:inherit;
+    text-align:left;width:100%;
+  }
+  .menu-item:hover{background:rgba(255,255,255,.08);color:#fff}
+  .menu-item:active{background:rgba(255,255,255,.14)}
+  .menu-item svg{width:16px;height:16px;flex:0 0 auto;color:#8b93a7}
+  .menu-item.active{
+    background:linear-gradient(135deg, rgba(255,110,60,.25), rgba(255,180,60,.2));
+    color:#fff;
+  }
+  .menu-item.active svg{color:#ff9a50}
+
+  .bottom{
+    left:50%;transform:translateX(-50%);
+    position:fixed;bottom:calc(10px + env(safe-area-inset-bottom,0px));
+    width:min(1080px,calc(100vw - 16px));
+    border-radius:18px;padding:10px;
+    display:flex;flex-direction:column;gap:8px;
+    color:#e8ecf5;
+    background:rgba(16,18,28,.72);
+    backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,.08);
+    box-shadow:0 10px 40px rgba(0,0,0,.5);
+    z-index:10;
+    transition:transform .3s cubic-bezier(.2,.8,.2,1), opacity .25s ease;
+    will-change:transform, opacity;
+  }
+  .bottom.hidden{transform:translate(-50%, calc(100% + 30px));opacity:0;pointer-events:none;}
+  .row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .row.nowrap{flex-wrap:nowrap}
+  .brushwrap{display:flex;align-items:center;gap:8px;flex:1;min-width:0}
+  .brushwrap label{font-size:11px;color:#8b93a7;letter-spacing:.04em;white-space:nowrap;flex:0 0 auto}
+  .brushwrap b{color:#c9d3e8;font-weight:600;font-variant-numeric:tabular-nums}
+
+  input[type=range]{-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;
+    flex:1;min-width:50px;background:linear-gradient(90deg,#6ea0ff,#a97dff);outline:none;cursor:pointer;touch-action:manipulation;}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:#fff;box-shadow:0 0 10px rgba(120,160,255,.9);cursor:pointer;}
+  input[type=range]::-moz-range-thumb{width:16px;height:16px;border:none;border-radius:50%;
+    background:#fff;box-shadow:0 0 10px rgba(120,160,255,.9);cursor:pointer;}
+
+  .collapse-btn{flex:0 0 auto;margin-left:auto}
+
+  .categories{display:flex;gap:6px;padding:0 0 2px;overflow-x:auto;overflow-y:hidden;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:manipulation;}
+  .categories::-webkit-scrollbar{display:none}
+  .cat{flex:0 0 auto;padding:6px 12px;border-radius:20px;font-size:10.5px;font-weight:700;
+    letter-spacing:.08em;text-transform:uppercase;color:#8b93a7;background:rgba(255,255,255,.04);
+    border:1px solid rgba(255,255,255,.07);cursor:pointer;touch-action:manipulation;
+    transition:.15s;white-space:nowrap;-webkit-tap-highlight-color:transparent;}
+  .cat:hover{color:#c3cbdd;background:rgba(255,255,255,.08)}
+  .cat:active{transform:scale(.96)}
+  .cat.active{color:#fff;background:linear-gradient(135deg,rgba(110,160,255,.28),rgba(170,120,255,.28));
+    border-color:rgba(130,180,255,.5);box-shadow:0 0 14px rgba(120,160,255,.25);}
+
+  .elements{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;
+    max-height:118px;overflow-y:auto;padding-right:2px;touch-action:manipulation;}
+  .elements::-webkit-scrollbar{width:5px;height:5px}
+  .elements::-webkit-scrollbar-thumb{background:rgba(255,255,255,.15);border-radius:4px}
+
+  .el{display:flex;align-items:center;gap:7px;padding:7px 11px;border-radius:11px;cursor:pointer;
+    background:rgba(255,255,255,.045);border:1px solid rgba(255,255,255,.07);
+    color:#c3cbdd;font-size:12px;font-weight:500;transition:.15s;white-space:nowrap;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;}
+  .el:hover{background:rgba(255,255,255,.1);color:#fff}
+  .el:active{background:rgba(255,255,255,.16);transform:scale(.96)}
+  .el.active{background:rgba(100,150,255,.22);border-color:rgba(130,180,255,.55);
+    color:#fff;box-shadow:0 0 18px rgba(90,140,255,.3);}
+  .dot{width:12px;height:12px;border-radius:4px;flex:0 0 auto;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.18);}
+
+  .fab{position:fixed;z-index:11;bottom:calc(14px + env(safe-area-inset-bottom,0px));
+    right:calc(14px + env(safe-area-inset-right,0px));width:58px;height:58px;border-radius:50%;
+    background:linear-gradient(135deg, rgba(30,36,56,.9), rgba(18,22,38,.9));
+    backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border:1px solid rgba(255,255,255,.14);
+    box-shadow:0 10px 34px rgba(0,0,0,.6), 0 0 0 1px rgba(120,160,255,.06),
+               inset 0 1px 0 rgba(255,255,255,.08);
+    color:#d6def0;font-size:24px;line-height:1;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    opacity:0;transform:scale(.4) translateY(24px);pointer-events:none;
+    transition:transform .3s cubic-bezier(.2,.8,.2,1), opacity .22s ease, box-shadow .2s;
+    -webkit-tap-highlight-color:transparent;touch-action:manipulation;font-family:inherit;padding:0;}
+  .fab.show{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
+  .fab:active{transform:scale(.92)}
+
+  .hint{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:20;
+    pointer-events:none;color:#8f9ab4;font-size:14px;letter-spacing:.05em;
+    text-align:center;line-height:1.7;transition:opacity 1s;text-shadow:0 2px 20px #000;
+    padding:0 20px;max-width:340px;}
+  .hint.gone{opacity:0}
+  .hint b{color:#c3cbdd;font-weight:600}
+
+  .toast{
+    position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom,0px));
+    transform:translateX(-50%) translateY(20px);
+    background:rgba(20,24,38,.95);color:#e8ecf5;
+    padding:10px 18px;border-radius:12px;font-size:13px;
+    border:1px solid rgba(255,255,255,.1);
+    box-shadow:0 12px 30px rgba(0,0,0,.6);
+    opacity:0;pointer-events:none;
+    transition:opacity .25s, transform .25s;z-index:50;
+    -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  /* ============================================================
+     ПРЕДУПРЕЖДЕНИЕ О НАГРУЗКЕ
+     ============================================================ */
+  .perf-warning{
+    position:fixed;inset:0;z-index:100;
+    display:flex;align-items:center;justify-content:center;
+    padding:20px;
+    background:rgba(4,5,10,.72);
+    -webkit-backdrop-filter:blur(10px);
+    backdrop-filter:blur(10px);
+    opacity:0;pointer-events:none;
+    transition:opacity .22s ease;
+  }
+  .perf-warning.show{opacity:1;pointer-events:auto}
+  .perf-card{
+    max-width:min(440px, 100%);
+    width:100%;
+    background:linear-gradient(160deg, rgba(30,20,22,.96), rgba(24,16,20,.96));
+    border:1px solid rgba(255,140,90,.28);
+    border-radius:20px;
+    padding:22px 22px 18px;
+    box-shadow:
+      0 24px 60px rgba(0,0,0,.7),
+      0 0 60px rgba(255,120,60,.08) inset;
+    text-align:center;
+    transform:translateY(14px) scale(.96);
+    transition:transform .28s cubic-bezier(.2,.9,.3,1.2);
+  }
+  .perf-warning.show .perf-card{transform:translateY(0) scale(1)}
+  .perf-icon{
+    width:56px;height:56px;border-radius:16px;
+    margin:0 auto 14px;
+    background:linear-gradient(135deg, rgba(255,140,60,.25), rgba(255,80,80,.18));
+    border:1px solid rgba(255,140,60,.35);
+    display:flex;align-items:center;justify-content:center;
+    color:#ffb072;font-size:26px;
+    box-shadow:0 0 24px rgba(255,120,60,.2);
+  }
+  .perf-title{
+    font-size:17px;font-weight:700;color:#ffe6d0;
+    letter-spacing:.02em;margin-bottom:8px;
+  }
+  .perf-text{
+    font-size:13px;line-height:1.55;color:#b7a8a0;
+    margin-bottom:8px;
+  }
+  .perf-stats{
+    display:flex;justify-content:center;gap:16px;
+    margin:14px 0 16px;
+    font-size:11px;color:#8b93a7;
+    letter-spacing:.04em;
+    text-transform:uppercase;
+  }
+  .perf-stats b{
+    display:block;
+    font-size:17px;font-weight:700;
+    color:#ff8c60;
+    letter-spacing:0;
+    text-transform:none;
+    font-variant-numeric:tabular-nums;
+    margin-top:2px;
+  }
+  .perf-actions{
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;
+  }
+  .perf-btn{
+    flex:1 1 130px;
+    padding:11px 16px;border-radius:12px;
+    font-family:inherit;font-size:13px;font-weight:600;
+    cursor:pointer;transition:.15s;
+    border:1px solid rgba(255,255,255,.1);
+    background:rgba(255,255,255,.05);color:#cfd6e6;
+    touch-action:manipulation;-webkit-tap-highlight-color:transparent;
+    letter-spacing:.02em;
+  }
+  .perf-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+  .perf-btn:active{transform:scale(.97)}
+  .perf-btn.primary{
+    background:linear-gradient(135deg, rgba(110,160,255,.35), rgba(150,110,255,.3));
+    border-color:rgba(130,180,255,.55);
+    color:#fff;
+    box-shadow:0 0 18px rgba(120,160,255,.25);
+  }
+  .perf-btn.primary:hover{
+    background:linear-gradient(135deg, rgba(120,170,255,.5), rgba(160,120,255,.4));
+    box-shadow:0 0 24px rgba(120,160,255,.4);
+  }
+
+  @media (pointer: coarse), (max-width: 720px) {
+    .topbar{
+      min-height:54px;gap:8px;
+      padding:calc(4px + env(safe-area-inset-top,0px)) calc(8px + env(safe-area-inset-right,0px))
+              4px calc(8px + env(safe-area-inset-left,0px));
+    }
+    .brand{gap:8px;align-items:center}
+    .brand-dot{width:20px;height:20px;border-radius:6px}
+    .brand-text{flex-direction:column;align-items:flex-start;gap:0;line-height:1.05}
+    .brand-title{display:block;font-size:10.5px;letter-spacing:.16em;font-weight:800}
+    .brand-fps{
+      font-size:9px;padding:0;background:none;border:none;
+      color:#66708a;letter-spacing:.03em;margin-top:1px;
+    }
+    .brand-fps.warn{background:none;border:none;color:#ffc878}
+    .brand-fps.danger{background:none;border:none;color:#ff7878;animation:none}
+    .toolbar .tbtn{display:none}
+    .menu-wrap{display:block}
+    .menu-btn,.tbtn{width:40px;height:40px;border-radius:11px}
+    .bottom{width:calc(100vw - 12px);padding:8px;border-radius:16px;gap:7px;
+      bottom:calc(6px + env(safe-area-inset-bottom,0px));}
+    .brushwrap{gap:7px}
+    .brushwrap label{font-size:12px}
+    input[type=range]{height:6px}
+    input[type=range]::-webkit-slider-thumb{width:22px;height:22px}
+    input[type=range]::-moz-range-thumb{width:22px;height:22px}
+    .cat{padding:8px 14px;font-size:11px;min-height:34px}
+    .elements{flex-wrap:nowrap;justify-content:flex-start;overflow-x:auto;overflow-y:hidden;
+      max-height:none;padding:2px 2px 6px;gap:7px;-webkit-overflow-scrolling:touch;
+      scroll-snap-type:x proximity;scrollbar-width:none;}
+    .elements::-webkit-scrollbar{display:none}
+    .el{flex:0 0 auto;padding:10px 13px;font-size:13px;border-radius:12px;
+      min-height:44px;scroll-snap-align:start;}
+    .dot{width:14px;height:14px;border-radius:5px}
+    .hint{font-size:13px;max-width:280px}
+    .fab{width:60px;height:60px;font-size:24px;
+      bottom:calc(12px + env(safe-area-inset-bottom,0px));
+      right:calc(12px + env(safe-area-inset-right,0px));}
+    .toast{bottom:calc(84px + env(safe-area-inset-bottom,0px));font-size:12px;padding:9px 15px}
+    .perf-card{padding:20px 18px 16px;border-radius:18px}
+    .perf-icon{width:48px;height:48px;font-size:22px;border-radius:14px}
+    .perf-title{font-size:16px}
+    .perf-text{font-size:12.5px}
+  }
+
+  @media (max-width: 380px) {
+    .el{padding:9px 11px;font-size:12px;min-height:42px}
+    .tbtn,.menu-btn{width:36px;height:36px}
+    .brushwrap label{font-size:11px}
+    .cat{padding:7px 11px;font-size:10px}
+    .brand-title{font-size:9.5px;letter-spacing:.14em}
+    .brand-fps{font-size:8.5px}
+    .brand-dot{width:18px;height:18px}
+  }
+
+  @media (pointer: coarse) and (orientation: landscape) and (max-height: 500px) {
+    .topbar{min-height:46px;padding:3px 8px}
+    .brand-title{font-size:10px}
+    .brand-fps{font-size:8.5px}
+    .bottom{width:calc(100vw - 12px);padding:6px 8px;gap:5px;
+      bottom:calc(4px + env(safe-area-inset-bottom,0px));}
+    .el{padding:7px 10px;font-size:12px;min-height:38px}
+    input[type=range]::-webkit-slider-thumb{width:18px;height:18px}
+    input[type=range]::-moz-range-thumb{width:18px;height:18px}
+    .fab{width:50px;height:50px;font-size:20px}
+    .cat{padding:6px 10px;font-size:10px;min-height:28px}
+    .elements{max-height:76px}
+    .perf-card{padding:16px 16px 14px}
+    .perf-icon{width:40px;height:40px;font-size:18px;margin-bottom:10px;border-radius:12px}
+    .perf-title{font-size:15px;margin-bottom:6px}
+    .perf-text{font-size:12px;margin-bottom:4px}
+    .perf-stats{margin:10px 0 12px}
+    .perf-stats b{font-size:15px}
+  }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="vig"></div>
+
+<div class="topbar">
+  <div class="brand">
+    <div class="brand-dot"></div>
+    <div class="brand-text">
+      <div class="brand-title">ПЕСОЧНИЦА</div>
+      <div class="brand-fps" id="fps">— FPS</div>
+    </div>
+  </div>
+
+  <div class="topbar-spacer"></div>
+
+  <div class="toolbar">
+    <button class="tbtn" id="btnHeat" title="Тепловизор (H)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+      </svg>
+    </button>
+    <button class="tbtn" id="btnPause" title="Пауза (Space)">⏸</button>
+    <button class="tbtn" id="btnClear" title="Очистить (C)">✕</button>
+    <button class="tbtn" id="btnFull" title="На весь экран (F)">⛶</button>
+    <button class="tbtn" id="btnShare" title="Поделиться (S)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+      </svg>
+    </button>
+  </div>
+
+  <div class="menu-wrap">
+    <button class="menu-btn" id="menuBtn" aria-label="Меню">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+        <line x1="3" y1="6" x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    </button>
+    <div class="menu-panel" id="menuPanel">
+      <button class="menu-item" id="mHeat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+        </svg>
+        <span>Тепловизор</span>
+      </button>
+      <button class="menu-item" id="mPause">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="6" y="4" width="4" height="16" rx="1"/>
+          <rect x="14" y="4" width="4" height="16" rx="1"/>
+        </svg>
+        <span>Пауза</span>
+      </button>
+      <button class="menu-item" id="mClear">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+        </svg>
+        <span>Очистить</span>
+      </button>
+      <button class="menu-item" id="mFull">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M8 3H5a2 2 0 0 0-2 2v3M21 8V5a2 2 0 0 0-2-2h-3M3 16v3a2 2 0 0 0 2 2h3M16 21h3a2 2 0 0 0 2-2v-3"/>
+        </svg>
+        <span>На весь экран</span>
+      </button>
+      <button class="menu-item" id="mShare">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+          <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+          <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+        </svg>
+        <span>Поделиться</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom" id="bottomPanel">
+  <div class="row nowrap">
+    <div class="brushwrap">
+      <label>КИСТЬ <b id="bval">3</b></label>
+      <button class="tbtn" style="width:34px;height:34px;font-size:16px;border-radius:9px" id="bminus">−</button>
+      <input type="range" id="brush" min="1" max="7" value="3">
+      <button class="tbtn" style="width:34px;height:34px;font-size:16px;border-radius:9px" id="bplus">+</button>
+    </div>
+    <button class="tbtn collapse-btn" id="btnCollapse" title="Свернуть" aria-label="Свернуть">▾</button>
+  </div>
+  <div class="categories" id="categories"></div>
+  <div class="elements" id="elements"></div>
+</div>
+
+<button class="fab" id="fab" aria-label="Показать инструменты" title="Инструменты">⚙</button>
+<div class="toast" id="toast"></div>
+
+<div class="hint" id="hint">
+  Коснитесь и ведите пальцем, чтобы рисовать<br>
+  <span style="font-size:12px;opacity:.7">Кнопки управления — в шапке сверху</span><br>
+  <span style="font-size:12px;opacity:.55">Вода течёт, песок сыпется, огонь поджигает горючее</span>
+</div>
+
+<!-- ============================================================
+     ПРЕДУПРЕЖДЕНИЕ О НАГРУЗКЕ
+     ============================================================ -->
+<div class="perf-warning" id="perfWarning">
+  <div class="perf-card">
+    <div class="perf-icon">⚠</div>
+    <div class="perf-title">Высокая нагрузка</div>
+    <div class="perf-text">
+      Симуляция приостановлена: FPS упал ниже 15.
+      Попробуйте очистить мир или уменьшить количество частиц.
+    </div>
+    <div class="perf-stats">
+      <div>FPS<b id="perfFps">—</b></div>
+      <div>Частиц<b id="perfParts">—</b></div>
+    </div>
+    <div class="perf-actions">
+      <button class="perf-btn primary" id="perfContinue">Продолжить</button>
+      <button class="perf-btn" id="perfClear">Очистить мир</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+const IS_TOUCH = (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+                 || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+
+/* ============================================================
+   ЭЛЕМЕНТЫ
+   ============================================================ */
+const E = {
+  EMPTY:0, SAND:1, WATER:2, STONE:3, WOOD:4, FIRE:5, OIL:6, ACID:7,
+  STEAM:8, ICE:9, LAVA:10, PLANT:11, SMOKE:12, GUNPOWDER:13, GLASS:14,
+  METAL:15, SNOW:16,
+  ASH:17, SALT:18, COAL:19, MERCURY:20, ALCOHOL:21, LN2:22,
+  HYDROGEN:23, CHLORINE:24, SPARK:25, VIRUS:26, WALL:27, GOLD:28,
+  TITANIUM:29, CONCRETE:30, FIREWORK:31
+};
+
+const P = [];
+function defP(id,o){ P[id]=o; }
+
+defP(E.SAND,      {type:'powder',density:60, flow:0, name:'Песок', col:[198,172,114], variance:0.32, css:'#c6ac72', cat:'powder',
+                   cond:0.06, meltTemp:900, meltInto:E.GLASS});
+defP(E.SNOW,      {type:'powder',density:40, flow:0, name:'Снег', col:[236,242,252], variance:0.10, css:'#ecf2fc', cat:'powder',
+                   cond:0.006, meltTemp:1, meltInto:E.WATER, startTemp:-15});
+defP(E.GUNPOWDER, {type:'powder',density:55, flow:0, name:'Порох', col:[74,72,68], variance:0.28, css:'#4a4844', cat:'powder',
+                   cond:0.12, igniteTemp:180, flammability:0.15, explodeRadius:6, explodeType:'normal'});
+defP(E.ASH,       {type:'powder',density:48, flow:0, name:'Зола', col:[92,90,88], variance:0.30, css:'#5c5a58', cat:'powder',
+                   cond:0.08});
+defP(E.SALT,      {type:'powder',density:50, flow:0, name:'Соль', col:[240,242,248], variance:0.08, css:'#f0f2f8', cat:'powder',
+                   cond:0.12, meltTemp:800, meltInto:E.LAVA});
+defP(E.FIREWORK,  {type:'powder',density:52, flow:0, name:'Фейерверк', col:[200,60,120], variance:0.40, css:'#c83c78', cat:'powder',
+                   cond:0.12, igniteTemp:200, flammability:0.15, explodeRadius:8, explodeType:'firework'});
+
+defP(E.WATER,     {type:'liquid',density:30, flow:1.00, spread:1.00, name:'Вода', col:[44,106,196], variance:0.20, css:'#2c6ac4', cat:'liquid',
+                   cond:0.28, freezeTemp:0, freezeInto:E.ICE, boilTemp:100, boilInto:E.STEAM});
+defP(E.OIL,       {type:'liquid',density:20, flow:1.00, spread:0.95, name:'Нефть', col:[62,48,36], variance:0.26, css:'#3e3024', cat:'liquid',
+                   cond:0.10, igniteTemp:280, flammability:0.10, burnLife:150});
+defP(E.ACID,      {type:'liquid',density:36, flow:1.00, spread:1.00, name:'Кислота', col:[150,236,72], variance:0.20, css:'#96ec48', cat:'liquid',
+                   cond:0.22});
+defP(E.LAVA,      {type:'liquid',density:70, flow:0.55, spread:0.45, name:'Лава', col:[255,110,30], variance:0, css:'#ff6e1e', glow:true, cat:'liquid',
+                   cond:0.30, emitTemp:1000});
+defP(E.MERCURY,   {type:'liquid',density:95, flow:0.95, spread:0.85, name:'Ртуть', col:[186,196,208], variance:0.14, css:'#bac4d0', cat:'liquid',
+                   cond:0.85, boilTemp:356, boilInto:E.SMOKE});
+defP(E.ALCOHOL,   {type:'liquid',density:25, flow:1.00, spread:1.00, name:'Спирт', col:[140,190,240], variance:0.14, css:'#8cbef0', cat:'liquid',
+                   cond:0.15, igniteTemp:70, flammability:0.20, burnLife:90});
+defP(E.LN2,       {type:'liquid',density:28, flow:1.00, spread:1.00, name:'Жидк. азот', col:[190,225,255], variance:0.10, css:'#bee1ff', cat:'liquid',
+                   cond:0.30, emitTemp:-180});
+
+defP(E.STONE,     {type:'solid', density:200, flow:0, name:'Камень', col:[112,114,124], variance:0.22, css:'#70727c', cat:'solid',
+                   cond:0.14, meltTemp:1500, meltInto:E.LAVA});
+defP(E.WOOD,      {type:'solid', density:200, flow:0, name:'Дерево', col:[124,84,46], variance:0.28, css:'#7c542e', cat:'solid',
+                   cond:0.03, igniteTemp:220, flammability:0.08, burnLife:220});
+defP(E.ICE,       {type:'solid', density:200, flow:0, name:'Лёд', col:[152,214,244], variance:0.18, css:'#98d6f4', cat:'solid',
+                   cond:0.004, meltTemp:1, meltInto:E.WATER, startTemp:-25});
+defP(E.PLANT,     {type:'solid', density:200, flow:0, name:'Растение', col:[58,152,64], variance:0.30, css:'#3a9840', cat:'solid',
+                   cond:0.015, igniteTemp:160, flammability:0.12, burnLife:70});
+defP(E.GLASS,     {type:'solid', density:200, flow:0, name:'Стекло', col:[168,216,226], variance:0.14, css:'#a8d8e2', cat:'solid',
+                   cond:0.10, meltTemp:1400, meltInto:E.LAVA});
+defP(E.METAL,     {type:'solid', density:200, flow:0, name:'Металл', col:[150,156,166], variance:0.14, css:'#969ca6', cat:'solid',
+                   cond:0.80, meltTemp:1500, meltInto:E.LAVA});
+defP(E.COAL,      {type:'solid', density:200, flow:0, name:'Уголь', col:[42,42,46], variance:0.20, css:'#2a2a2e', cat:'solid',
+                   cond:0.12, igniteTemp:350, flammability:0.04, burnLife:380});
+defP(E.GOLD,      {type:'solid', density:200, flow:0, name:'Золото', col:[230,190,70], variance:0.16, css:'#e6be46', cat:'solid',
+                   cond:0.85, meltTemp:1064, meltInto:E.LAVA});
+defP(E.TITANIUM,  {type:'solid', density:200, flow:0, name:'Титан', col:[190,196,206], variance:0.10, css:'#bec4ce', cat:'solid',
+                   cond:0.30, meltTemp:1668, meltInto:E.LAVA});
+defP(E.CONCRETE,  {type:'solid', density:200, flow:0, name:'Бетон', col:[150,148,144], variance:0.16, css:'#969490', cat:'solid',
+                   cond:0.10, meltTemp:1500, meltInto:E.LAVA});
+defP(E.WALL,      {type:'solid', density:255, flow:0, name:'Стена', col:[36,44,66], variance:0.08, css:'#242c42', cat:'solid',
+                   cond:0});
+
+defP(E.STEAM,     {type:'gas', density:1, flow:0, name:'Пар', col:[206,216,228], variance:0.16, css:'#ced8e4', cat:'gas',
+                   cond:0.25, life:200, condenseTemp:99, condenseInto:E.WATER});
+defP(E.SMOKE,     {type:'gas', density:1.5, flow:0, name:'Дым', col:[80,80,88], variance:0.22, css:'#505058', cat:'gas',
+                   cond:0.12, life:150});
+defP(E.HYDROGEN,  {type:'gas', density:0.5, flow:0, name:'Водород', col:[190,215,255], variance:0.12, css:'#bed7ff', cat:'gas',
+                   cond:0.15, igniteTemp:400, flammability:0.30, explodeRadius:8, explodeType:'hydrogen'});
+defP(E.CHLORINE,  {type:'gas', density:3, flow:0, name:'Хлор', col:[190,225,90], variance:0.20, css:'#bee15a', cat:'gas',
+                   cond:0.15});
+
+defP(E.FIRE,      {type:'gas', density:2, flow:0, name:'Огонь', col:[255,140,40], variance:0, css:'#ff8c28', glow:true, cat:'energy',
+                   cond:0.35, emitTemp:700, life:110});
+defP(E.SPARK,     {type:'gas', density:1.8, flow:0, name:'Искра', col:[255,220,120], variance:0, css:'#ffdc78', glow:true, cat:'energy',
+                   cond:0.35, emitTemp:500, life:50});
+
+defP(E.VIRUS,     {type:'solid', density:200, flow:0, name:'Вирус', col:[180,60,180], variance:0.24, css:'#b43cb4', cat:'special',
+                   cond:0.006});
+defP(E.EMPTY,     {type:'empty', density:0, flow:0, name:'Ластик', col:[10,10,16], variance:0, css:'#14141f', cat:'special',
+                   cond:0});
+
+const PAL = [];
+(function buildPalettes(){
+  const rainbow = [
+    [255,80,80],[255,140,60],[255,220,80],[200,255,100],
+    [100,255,120],[80,255,200],[100,200,255],[130,140,255],
+    [180,100,255],[255,80,220],[255,80,140],[255,140,140]
+  ];
+  for(let id=0; id<P.length; id++){
+    const p = P[id];
+    const arr = new Uint32Array(32);
+    if(id === E.FIRE){
+      for(let k=0;k<32;k++){
+        const t = k/31;
+        const r = 255, g = (40 + 205*t)|0, b = (8 + 80*t*t*t)|0;
+        arr[k] = (255<<24)|(b<<16)|(g<<8)|r;
+      }
+    } else if(id === E.LAVA){
+      for(let k=0;k<32;k++){
+        const t = k/31;
+        const r = 255, g = (55 + 155*t)|0, b = (12 + 30*t)|0;
+        arr[k] = (255<<24)|(b<<16)|(g<<8)|r;
+      }
+    } else if(id === E.SPARK){
+      for(let k=0;k<32;k++){
+        const t = k/31;
+        const ci = t * (rainbow.length - 1);
+        const i0 = Math.floor(ci);
+        const i1 = Math.min(i0+1, rainbow.length-1);
+        const f  = ci - i0;
+        const r = (rainbow[i0][0]*(1-f) + rainbow[i1][0]*f)|0;
+        const g = (rainbow[i0][1]*(1-f) + rainbow[i1][1]*f)|0;
+        const b = (rainbow[i0][2]*(1-f) + rainbow[i1][2]*f)|0;
+        arr[k] = (255<<24)|(b<<16)|(g<<8)|r;
+      }
+    } else {
+      const c = p.col, v = p.variance;
+      for(let k=0;k<32;k++){
+        const f = 1 - v + 2*v*(k/31);
+        const r = Math.max(0,Math.min(255,Math.round(c[0]*f)));
+        const g = Math.max(0,Math.min(255,Math.round(c[1]*f)));
+        const b = Math.max(0,Math.min(255,Math.round(c[2]*f)));
+        arr[k] = (255<<24)|(b<<16)|(g<<8)|r;
+      }
+    }
+    PAL[id] = arr;
+  }
+})();
+
+const BG = (255<<24)|(14<<16)|(11<<8)|11;
+const AMBIENT = 20;
+
+const cvs = document.getElementById('c');
+const ctx = cvs.getContext('2d', { alpha:false });
+
+let W=0, H=0, N=0, SCALE=1, frame=0;
+let cvsW=0, cvsH=0;
+let grid, life, rnd, moved, dispX;
+let temp, tempNext;
+let small, sctx, simg, sbuf;
+let glowC, gctx, gimg, gbuf;
+
+let paused = false;
+let perfPaused = false;
+let brushSize = 3;
+let currentEl = E.SAND;
+let heatView = false;
+
+/* ============================================================
+   РАЗМЕР
+   ============================================================ */
+function resize(){
+  const w = Math.max(280, window.innerWidth|0);
+  const h = Math.max(280, window.innerHeight|0);
+  cvs.width = w; cvs.height = h;
+  cvsW = w; cvsH = h;
+
+  const maxCells = IS_TOUCH ? 420000 : 1300000;
+  let scale = 1;
+  while(Math.floor(w/scale) * Math.floor(h/scale) > maxCells) scale++;
+  SCALE = scale;
+
+  W = Math.floor(w/scale);
+  H = Math.floor(h/scale);
+  N = W*H;
+
+  grid     = new Uint8Array(N);
+  life     = new Uint8Array(N);
+  rnd      = new Uint8Array(N);
+  moved    = new Uint8Array(N);
+  dispX    = new Int8Array(N);
+  temp     = new Float32Array(N).fill(AMBIENT);
+  tempNext = new Float32Array(N).fill(AMBIENT);
+
+  small = document.createElement('canvas');
+  small.width = W; small.height = H;
+  sctx = small.getContext('2d');
+  simg = sctx.createImageData(W,H);
+  sbuf = new Uint32Array(simg.data.buffer);
+
+  glowC = document.createElement('canvas');
+  glowC.width = W; glowC.height = H;
+  gctx = glowC.getContext('2d');
+  gimg = gctx.createImageData(W,H);
+  gbuf = new Uint32Array(gimg.data.buffer);
+
+  for(let i=0;i<N;i++) rnd[i] = (Math.random()*256)|0;
+}
+
+const DX = [0,0,-1,1];
+const DY = [-1,1,0,1];
+
+function canDisplace(p, o){
+  if(o === E.EMPTY) return true;
+  const q = P[o];
+  if(q.type === 'solid' || q.type === 'powder' || q.type === 'empty') return false;
+  return p.density > q.density;
+}
+
+function swap(i,j){
+  let t;
+  t=grid[i]; grid[i]=grid[j]; grid[j]=t;
+  t=life[i]; life[i]=life[j]; life[j]=t;
+  t=rnd[i];  rnd[i]=rnd[j];   rnd[j]=t;
+  t=temp[i]; temp[i]=temp[j]; temp[j]=t;
+  t=dispX[i]; dispX[i]=dispX[j]; dispX[j]=t;
+  moved[j]=1;
+}
+
+function powderMove(x,y,i,p){
+  if(y+1 >= H) return;
+  const b = i + W;
+  if(canDisplace(p, grid[b])){ swap(i,b); return; }
+  const d = Math.random()<0.5 ? -1 : 1;
+  for(let k=0;k<2;k++){
+    const dx = k===0 ? d : -d;
+    const nx = x + dx;
+    if(nx<0 || nx>=W) continue;
+    const j = b + dx;
+    if(canDisplace(p, grid[j])){ swap(i,j); return; }
+  }
+}
+
+function liquidMove(x,y,i,p){
+  if(y+1 < H){
+    const b = i + W;
+    if(canDisplace(p, grid[b])){ swap(i,b); return; }
+    const d = Math.random()<0.5 ? -1 : 1;
+    for(let k=0;k<2;k++){
+      const dx = k===0 ? d : -d;
+      const nx = x + dx;
+      if(nx<0 || nx>=W) continue;
+      const j = b + dx;
+      if(canDisplace(p, grid[j])){ swap(i,j); return; }
+    }
+  }
+
+  const spread = p.spread !== undefined ? p.spread : 0.5;
+  const flow   = p.flow   !== undefined ? p.flow   : 1;
+
+  let dir = dispX[i];
+  if(dir === 0){
+    dir = Math.random()<0.5 ? -1 : 1;
+    dispX[i] = dir;
+  } else if(Math.random() < 0.02){
+    dir = -dir;
+    dispX[i] = dir;
+  }
+
+  const steps = Math.max(2, Math.round(spread * flow * 20));
+
+  let cx = x;
+  let curIdx = i;
+  let didMove = false;
+
+  for(let s=0; s<steps; s++){
+    const nx = cx + dir;
+    if(nx < 0 || nx >= W){ dir = -dir; dispX[curIdx] = dir; break; }
+
+    const j = curIdx + dir;
+    if(!canDisplace(p, grid[j])){ dir = -dir; dispX[curIdx] = dir; break; }
+
+    if(y+1 < H){
+      const belowJ = j + W;
+      const belowType = grid[belowJ];
+      const canFallBelow = (belowType === E.EMPTY) ||
+        ((P[belowType].type === 'liquid' || P[belowType].type === 'gas') && p.density > P[belowType].density);
+      if(canFallBelow){
+        swap(curIdx, belowJ);
+        dispX[belowJ] = dir;
+        return;
+      }
+    }
+
+    swap(curIdx, j);
+    dispX[j] = dir;
+    curIdx = j;
+    cx = nx;
+    didMove = true;
+
+    if(Math.random() < 0.03) break;
+  }
+
+  if(!didMove){
+    dispX[i] = -dir;
+  }
+}
+
+function gasMove(x,y,i,p){
+  const t = grid[i];
+  const mobility = (t === E.FIRE) ? 0.10 : (t === E.SPARK ? 0.55 : 1.0);
+  const d = Math.random()<0.5 ? -1 : 1;
+
+  if(y > 0 && Math.random() < mobility){
+    const u = i - W;
+    if(canDisplace(p, grid[u])){ swap(i,u); return; }
+    for(let k=0;k<2;k++){
+      const dx = k===0 ? d : -d;
+      const nx = x + dx;
+      if(nx<0 || nx>=W) continue;
+      const j = u + dx;
+      if(canDisplace(p, grid[j])){ swap(i,j); return; }
+    }
+  }
+  if(Math.random() < 0.5 * mobility){
+    for(let k=0;k<2;k++){
+      const dx = k===0 ? d : -d;
+      const nx = x + dx;
+      if(nx<0 || nx>=W) continue;
+      const j = i + dx;
+      if(canDisplace(p, grid[j])){ swap(i,j); return; }
+    }
+  }
+}
+
+function explodeAt(cx,cy,r,type){
+  const r2 = r*r;
+  for(let dy=-r; dy<=r; dy++){
+    const yy = cy+dy;
+    if(yy<0||yy>=H) continue;
+    for(let dx=-r; dx<=r; dx++){
+      const xx = cx+dx;
+      if(xx<0||xx>=W) continue;
+      if(dx*dx + dy*dy > r2) continue;
+      const j = yy*W + xx;
+      const t = grid[j];
+      if(t===E.WALL || t===E.TITANIUM) continue;
+      if(t===E.STONE && Math.random()<0.3) continue;
+
+      let rv = Math.random();
+      if(type === 'hydrogen'){
+        if(rv < 0.85){ grid[j] = E.FIRE; life[j] = 30 + ((Math.random()*60)|0); temp[j] = 700; }
+        else grid[j] = E.EMPTY;
+      } else if(type === 'firework'){
+        if(rv < 0.55){ grid[j] = E.SPARK; life[j] = 40 + ((Math.random()*50)|0); temp[j] = 500; }
+        else if(rv < 0.85){ grid[j] = E.FIRE; life[j] = 25 + ((Math.random()*40)|0); temp[j] = 700; }
+        else grid[j] = E.EMPTY;
+      } else {
+        if(rv < 0.75){ grid[j] = E.FIRE; life[j] = 25 + ((Math.random()*55)|0); temp[j] = 700; }
+        else grid[j] = E.EMPTY;
+      }
+      rnd[j] = (Math.random()*256)|0;
+    }
+  }
+}
+
+function tryIgniteNeighbor(j, sourceTemp){
+  const nt = grid[j];
+  const np = P[nt];
+  if(np.flammability === undefined) return;
+  const heatFactor = Math.min(1, Math.max(0, (sourceTemp - 100) / 600));
+  const chance = np.flammability * (0.5 + heatFactor);
+  if(Math.random() < chance){
+    if(np.explodeRadius){
+      const nx = j % W, ny = (j / W)|0;
+      explodeAt(nx, ny, np.explodeRadius, np.explodeType || 'normal');
+    } else {
+      grid[j] = E.FIRE;
+      life[j] = np.burnLife || 100;
+      temp[j] = 700;
+      rnd[j] = (Math.random()*256)|0;
+    }
+  }
+}
+
+function fireLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const nt = grid[j];
+    if(nt===E.WATER){
+      grid[j] = E.STEAM; life[j] = 150; temp[j] = 120;
+      grid[i] = E.EMPTY; life[i] = 0;
+      return;
+    }
+    if(nt===E.ICE || nt===E.SNOW){
+      grid[j] = E.WATER; temp[j] = 5;
+      continue;
+    }
+  }
+
+  const myTemp = temp[i];
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const t2 = temp[j];
+    if(t2 < 700) temp[j] = t2 + (700 - t2) * 0.14;
+    tryIgniteNeighbor(j, myTemp);
+  }
+
+  let l = life[i];
+  if(l > 0) l--;
+  if(l <= 0){
+    const r = Math.random();
+    temp[i] = Math.min(temp[i], 250);
+    if(r < 0.14){ grid[i] = E.ASH; life[i]=0; }
+    else if(r < 0.5){ grid[i] = E.SMOKE; life[i] = 100 + ((Math.random()*80)|0); }
+    else { grid[i] = E.EMPTY; }
+    return;
+  }
+  life[i] = l;
+}
+
+function sparkLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const nt = grid[j];
+    if(nt===E.WATER){ grid[i]=E.EMPTY; life[i]=0; return; }
+    const t2 = temp[j];
+    if(t2 < 500) temp[j] = t2 + (500 - t2) * 0.12;
+    tryIgniteNeighbor(j, temp[i]);
+  }
+  let l = life[i];
+  if(l > 0) l--;
+  if(l <= 0){
+    if(Math.random()<0.55){ grid[i]=E.SMOKE; life[i]=50; temp[i]=200; }
+    else { grid[i]=E.EMPTY; }
+    return;
+  }
+  life[i] = l;
+}
+
+function lavaLogic(x,y,i){
+  const myTemp = temp[i];
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const t2 = temp[j];
+    if(t2 < 1000) temp[j] = t2 + (1000 - t2) * 0.16;
+    tryIgniteNeighbor(j, myTemp);
+  }
+}
+
+function acidLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const nt = grid[j];
+    if(nt===E.EMPTY || nt===E.WATER || nt===E.ACID || nt===E.STEAM ||
+       nt===E.SMOKE || nt===E.FIRE || nt===E.SPARK || nt===E.LN2 ||
+       nt===E.HYDROGEN || nt===E.CHLORINE) continue;
+    if(nt===E.WALL || nt===E.GLASS || nt===E.GOLD || nt===E.TITANIUM) continue;
+
+    if(Math.random() < 0.05){
+      if(Math.random() < 0.22){
+        grid[j] = E.SMOKE;
+        life[j] = 60 + ((Math.random()*70)|0);
+        temp[j] = 60;
+      } else {
+        grid[j] = E.EMPTY;
+      }
+      rnd[j] = (Math.random()*256)|0;
+      if(Math.random() < 0.32){
+        grid[i] = E.EMPTY; life[i] = 0;
+        return;
+      }
+    }
+  }
+}
+
+function plantLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    if(grid[j] === E.WATER && Math.random() < 0.014){
+      grid[j] = E.PLANT;
+      temp[j] = AMBIENT;
+      rnd[j]  = (Math.random()*256)|0;
+    }
+  }
+}
+
+function saltLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const nt = grid[j];
+    if((nt===E.ICE || nt===E.SNOW) && Math.random()<0.08){
+      grid[j] = E.WATER; life[j]=0; temp[j] = 2;
+      rnd[j]  = (Math.random()*256)|0;
+    }
+  }
+}
+
+function ln2Logic(x,y,i){
+  if(Math.random()<0.0008){ grid[i] = E.EMPTY; life[i]=0; return; }
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const t2 = temp[j];
+    if(t2 > -180) temp[j] = t2 + (-180 - t2) * 0.15;
+    const nt = grid[j];
+    if(nt===E.WATER && Math.random()<0.05){
+      grid[j] = E.ICE; temp[j] = -20; rnd[j]=(Math.random()*256)|0;
+    } else if(nt===E.STEAM && Math.random()<0.10){
+      grid[j] = E.WATER; life[j]=0; temp[j]=2;
+    } else if(nt===E.FIRE){
+      grid[j] = E.EMPTY; life[j]=0;
+    }
+  }
+}
+
+function chlorineLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    const nt = grid[j];
+    if((nt===E.PLANT || nt===E.VIRUS) && Math.random()<0.06){
+      grid[j] = E.ASH; temp[j]=AMBIENT; rnd[j]=(Math.random()*256)|0;
+    } else if(nt===E.WATER && Math.random()<0.010){
+      grid[j] = E.ACID; temp[j]=AMBIENT;
+      grid[i] = E.EMPTY;
+      return;
+    }
+  }
+  if(Math.random()<0.0005){ grid[i] = E.EMPTY; life[i]=0; }
+}
+
+function virusLogic(x,y,i){
+  for(let d=0; d<4; d++){
+    const nx = x+DX[d], ny = y+DY[d];
+    if(nx<0||nx>=W||ny<0||ny>=H) continue;
+    const j = ny*W + nx;
+    if(grid[j] === E.PLANT && Math.random() < 0.045){
+      grid[j] = E.VIRUS;
+      temp[j] = AMBIENT;
+      rnd[j] = (Math.random()*256)|0;
+    }
+  }
+  if(Math.random()<0.0005){ grid[i] = E.EMPTY; life[i]=0; }
+}
+
+function steamLogic(i){
+  const l = life[i];
+  if(l > 0){ life[i] = l-1; return false; }
+  grid[i] = E.WATER; life[i]=0; temp[i] = Math.min(temp[i], 95);
+  return true;
+}
+
+function smokeLogic(i){
+  const l = life[i];
+  if(l > 0){ life[i] = l-1; return false; }
+  grid[i] = E.EMPTY; life[i]=0;
+  return true;
+}
+
+function checkPhase(i, x, y, t, p, T){
+  if(p.igniteTemp !== undefined && T >= p.igniteTemp){
+    if(p.explodeRadius){
+      explodeAt(x, y, p.explodeRadius, p.explodeType || 'normal');
+      return true;
+    }
+    grid[i] = E.FIRE;
+    life[i] = p.burnLife || 100;
+    temp[i] = 700;
+    rnd[i] = (Math.random()*256)|0;
+    return true;
+  }
+  if(p.meltTemp !== undefined && T >= p.meltTemp){
+    grid[i] = p.meltInto; rnd[i] = (Math.random()*256)|0; return true;
+  }
+  if(p.freezeTemp !== undefined && T <= p.freezeTemp){
+    grid[i] = p.freezeInto; rnd[i] = (Math.random()*256)|0; return true;
+  }
+  if(p.boilTemp !== undefined && T >= p.boilTemp){
+    grid[i] = p.boilInto;
+    life[i] = 150 + ((Math.random()*80)|0);
+    rnd[i] = (Math.random()*256)|0;
+    return true;
+  }
+  if(p.condenseTemp !== undefined && T <= p.condenseTemp){
+    grid[i] = p.condenseInto; life[i] = 0; rnd[i] = (Math.random()*256)|0;
+    return true;
+  }
+  return false;
+}
+
+function updateCell(x,y,i,t){
+  const p = P[t];
+  if(p.emitTemp !== undefined) temp[i] = p.emitTemp;
+  if(checkPhase(i, x, y, t, p, temp[i])) return;
+
+  switch(t){
+    case E.FIRE:     fireLogic(x,y,i); break;
+    case E.SPARK:    sparkLogic(x,y,i); break;
+    case E.LAVA:     lavaLogic(x,y,i); break;
+    case E.ACID:     acidLogic(x,y,i); break;
+    case E.PLANT:    plantLogic(x,y,i); break;
+    case E.SALT:     saltLogic(x,y,i); break;
+    case E.LN2:      ln2Logic(x,y,i); break;
+    case E.CHLORINE: chlorineLogic(x,y,i); break;
+    case E.VIRUS:    virusLogic(x,y,i); break;
+    case E.STEAM:    if(steamLogic(i)) return; break;
+    case E.SMOKE:    if(smokeLogic(i)) return; break;
+  }
+
+  t = grid[i];
+  if(t === E.EMPTY || moved[i]) return;
+
+  const np = P[t];
+  if(np.type === 'powder')      powderMove(x,y,i,np);
+  else if(np.type === 'liquid') liquidMove(x,y,i,np);
+  else if(np.type === 'gas')    gasMove(x,y,i,np);
+}
+
+function simulate(){
+  moved.fill(0);
+  for(let y=H-1; y>=0; y--){
+    const dir = ((frame + y) & 1) ? 1 : -1;
+    for(let k=0; k<W; k++){
+      const x = dir > 0 ? k : W-1-k;
+      const i = y*W + x;
+      const t = grid[i];
+      if(t === E.EMPTY || moved[i]) continue;
+      updateCell(x,y,i,t);
+    }
+  }
+  frame++;
+}
+
+function diffuseHeat(){
+  const tp = temp;
+  const tn = tempNext;
+  for(let y=0; y<H; y++){
+    const row = y*W;
+    for(let x=0; x<W; x++){
+      const i = row + x;
+      const t = grid[i];
+      const T = tp[i];
+
+      if(t === E.EMPTY){
+        let sum = 0, cnt = 0;
+        if(x > 0)   { sum += tp[i-1]; cnt++; }
+        if(x < W-1) { sum += tp[i+1]; cnt++; }
+        if(y > 0)   { sum += tp[i-W]; cnt++; }
+        if(y < H-1) { sum += tp[i+W]; cnt++; }
+        const avg = sum / cnt;
+        tn[i] = T + (avg - T) * 0.30 + (AMBIENT - T) * 0.012;
+        continue;
+      }
+
+      const p = P[t];
+      const c = p.cond || 0;
+      if(c === 0){ tn[i] = T; continue; }
+
+      let sum = 0, cnt = 0;
+      if(x > 0)   { sum += tp[i-1]; cnt++; }
+      if(x < W-1) { sum += tp[i+1]; cnt++; }
+      if(y > 0)   { sum += tp[i-W]; cnt++; }
+      if(y < H-1) { sum += tp[i+W]; cnt++; }
+      const avg = sum / cnt;
+      const rate = Math.min(0.5, c);
+      tn[i] = T + (avg - T) * rate;
+    }
+  }
+  const tmp = temp;
+  temp = tempNext;
+  tempNext = tmp;
+}
+
+function heatRGB(n){
+  if(n < 0.15){
+    const s = n/0.15;
+    return [0, (s*90)|0, (140 + s*90)|0];
+  } else if(n < 0.35){
+    const s = (n-0.15)/0.20;
+    return [(s*70)|0, (90 + s*120)|0, (230 - s*160)|0];
+  } else if(n < 0.55){
+    const s = (n-0.35)/0.20;
+    return [(70 + s*185)|0, 210 + (s*45)|0, (70 - s*70)|0];
+  } else if(n < 0.75){
+    const s = (n-0.55)/0.20;
+    return [255, (255 - s*160)|0, 0];
+  } else {
+    const s = (n-0.75)/0.25;
+    return [255, (95 + s*160)|0, (s*255)|0];
+  }
+}
+
+const HEAT_TMIN = -150;
+const HEAT_TMAX = 900;
+const HEAT_RANGE = HEAT_TMAX - HEAT_TMIN;
+
+function render(){
+  const fr = frame;
+
+  if(heatView){
+    for(let i=0; i<N; i++){
+      let n = (temp[i] - HEAT_TMIN) / HEAT_RANGE;
+      if(n < 0) n = 0; else if(n > 1) n = 1;
+      const c = heatRGB(n);
+      sbuf[i] = (255<<24)|(c[2]<<16)|(c[1]<<8)|c[0];
+      gbuf[i] = 0;
+    }
+  } else {
+    for(let i=0; i<N; i++){
+      const t = grid[i];
+      if(t === E.EMPTY){ sbuf[i] = BG; gbuf[i] = 0; continue; }
+      const pal = PAL[t];
+      let idx;
+      if(t === E.FIRE){
+        idx = (rnd[i] + (fr<<1)) & 31;
+        const c = pal[idx]; sbuf[i] = c; gbuf[i] = c;
+      } else if(t === E.LAVA){
+        idx = (rnd[i] + fr) & 31;
+        const c = pal[idx]; sbuf[i] = c; gbuf[i] = c;
+      } else if(t === E.SPARK){
+        idx = (rnd[i] + (fr<<2)) & 31;
+        const c = pal[idx]; sbuf[i] = c; gbuf[i] = c;
+      } else {
+        idx = rnd[i] >> 3;
+        sbuf[i] = pal[idx]; gbuf[i] = 0;
+      }
+    }
+  }
+
+  if(SCALE === 1 && cvsW === W && cvsH === H){
+    sctx.putImageData(simg, 0, 0);
+    gctx.putImageData(gimg, 0, 0);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    ctx.putImageData(simg, 0, 0);
+
+    if(!heatView){
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.45;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(glowC, 0, 0);
+    }
+  } else {
+    sctx.putImageData(simg, 0, 0);
+    gctx.putImageData(gimg, 0, 0);
+
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.globalAlpha = 1;
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(small, 0, 0, W, H, 0, 0, cvsW, cvsH);
+
+    if(!heatView){
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.globalAlpha = 0.45;
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(glowC, 0, 0, W, H, 0, 0, cvsW, cvsH);
+    }
+  }
+
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.globalAlpha = 1;
+  ctx.imageSmoothingEnabled = false;
+
+  if(mouseInside && !IS_TOUCH){
+    ctx.beginPath();
+    ctx.arc(mouseX, mouseY, Math.max(2, brushSize*SCALE), 0, Math.PI*2);
+    ctx.strokeStyle = heatView ? 'rgba(0,0,0,.55)' : 'rgba(255,255,255,.30)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+  }
+}
+
+let mouseInside = false;
+let mouseX = 0, mouseY = 0;
+let painting = false;
+let lastGX = -1, lastGY = -1;
+let activePointerId = null;
+
+function toGrid(px,py){
+  return [ Math.floor(px / cvsW * W), Math.floor(py / cvsH * H) ];
+}
+
+function canPaintOver(existing, newId){
+  if(newId === E.EMPTY) return true;
+  if(existing === E.EMPTY) return true;
+  if(existing === newId) return false;
+  if(existing === E.WALL) return false;
+  const np = P[newId];
+  const ex = P[existing];
+  if(np.type === 'gas') return false;
+  if(ex.type === 'solid' || ex.type === 'powder') return false;
+  return np.density > ex.density;
+}
+
+function setCell(i, t){
+  grid[i] = t;
+  rnd[i]  = (Math.random()*256)|0;
+  life[i] = 0;
+  dispX[i] = 0;
+  const p = P[t];
+  if(p.emitTemp !== undefined) temp[i] = p.emitTemp;
+  else if(p.startTemp !== undefined) temp[i] = p.startTemp;
+  else temp[i] = AMBIENT;
+  if(p.life !== undefined) life[i] = p.life;
+}
+
+function paintAt(gx,gy){
+  const r = brushSize;
+  const r2 = r*r;
+  const t = currentEl;
+  for(let dy=-r; dy<=r; dy++){
+    const yy = gy+dy;
+    if(yy<0 || yy>=H) continue;
+    for(let dx=-r; dx<=r; dx++){
+      const xx = gx+dx;
+      if(xx<0 || xx>=W) continue;
+      const d2 = dx*dx + dy*dy;
+      if(d2 > r2) continue;
+      if(d2 > r2*0.62 && Math.random() < 0.45) continue;
+      const i = yy*W + xx;
+      if(!canPaintOver(grid[i], t)) continue;
+      setCell(i, t);
+    }
+  }
+}
+
+function paintLine(x0,y0,x1,y1){
+  const dx = x1-x0, dy = y1-y0;
+  const steps = Math.max(Math.abs(dx), Math.abs(dy));
+  if(steps === 0){ paintAt(x1,y1); return; }
+  for(let s=0; s<=steps; s++){
+    paintAt(Math.round(x0 + dx*s/steps), Math.round(y0 + dy*s/steps));
+  }
+}
+
+function pointerPos(e){
+  const rect = cvs.getBoundingClientRect();
+  return [
+    (e.clientX - rect.left) * (cvsW / rect.width),
+    (e.clientY - rect.top ) * (cvsH / rect.height)
+  ];
+}
+
+cvs.addEventListener('pointerdown', e=>{
+  if(activePointerId !== null) return;
+  activePointerId = e.pointerId;
+  try { cvs.setPointerCapture(e.pointerId); } catch(_) {}
+  const [px,py] = pointerPos(e);
+  mouseX = px; mouseY = py; mouseInside = true;
+  const [gx,gy] = toGrid(px,py);
+  painting = true; lastGX = gx; lastGY = gy;
+  paintAt(gx,gy);
+  hideHint();
+  e.preventDefault();
+}, {passive:false});
+
+cvs.addEventListener('pointermove', e=>{
+  if(e.pointerId !== activePointerId && activePointerId !== null) return;
+  const [px,py] = pointerPos(e);
+  mouseX = px; mouseY = py; mouseInside = true;
+  if(painting && e.pointerId === activePointerId){
+    const [gx,gy] = toGrid(px,py);
+    if(gx !== lastGX || gy !== lastGY){
+      paintLine(lastGX, lastGY, gx, gy);
+      lastGX = gx; lastGY = gy;
+    }
+    e.preventDefault();
+  }
+}, {passive:false});
+
+function endPaint(e){
+  if(e && e.pointerId !== undefined && e.pointerId !== activePointerId) return;
+  painting = false; lastGX = -1; lastGY = -1; activePointerId = null;
+}
+cvs.addEventListener('pointerup', endPaint);
+cvs.addEventListener('pointercancel', endPaint);
+cvs.addEventListener('lostpointercapture', endPaint);
+cvs.addEventListener('pointerleave', ()=>{ if(!painting) mouseInside = false; });
+cvs.addEventListener('pointerenter', ()=>{ mouseInside = true; });
+
+cvs.addEventListener('wheel', e=>{
+  e.preventDefault();
+  setBrush(brushSize + (e.deltaY > 0 ? -1 : 1));
+}, {passive:false});
+
+cvs.addEventListener('contextmenu', e=>e.preventDefault());
+document.addEventListener('contextmenu', e=>{ if(e.target === cvs) e.preventDefault(); });
+document.addEventListener('gesturestart', e=>e.preventDefault());
+document.addEventListener('dblclick', e=>e.preventDefault(), {passive:false});
+
+window.addEventListener('keydown', e=>{
+  if(e.code === 'Space'){ e.preventDefault(); togglePause(); }
+  else if(e.key === 'c' || e.key === 'C' || e.key === 'с' || e.key === 'С'){ clearWorld(); }
+  else if(e.key === 'f' || e.key === 'F'){ toggleFullscreen(); }
+  else if(e.key === 'h' || e.key === 'H' || e.key === 'р' || e.key === 'Р'){ toggleHeat(); }
+  else if(e.key === 's' || e.key === 'S' || e.key === 'ы' || e.key === 'Ы'){ shareWorld(); }
+  else if(e.key === 'Tab'){ e.preventDefault(); togglePanel(); }
+  else if(e.key >= '1' && e.key <= '9'){
+    const idx = parseInt(e.key,10)-1;
+    if(UI_ELEMENTS[idx] !== undefined) selectElement(UI_ELEMENTS[idx]);
+  }
+});
+
+const UI_ELEMENTS = [
+  E.SAND, E.SNOW, E.GUNPOWDER, E.FIREWORK, E.ASH, E.SALT,
+  E.WATER, E.OIL, E.ACID, E.LAVA, E.MERCURY, E.ALCOHOL, E.LN2,
+  E.STONE, E.WOOD, E.ICE, E.PLANT, E.GLASS, E.METAL, E.COAL,
+  E.GOLD, E.TITANIUM, E.CONCRETE, E.WALL,
+  E.STEAM, E.SMOKE, E.HYDROGEN, E.CHLORINE,
+  E.FIRE, E.SPARK,
+  E.VIRUS, E.EMPTY
+];
+
+const CATEGORIES = [
+  {id:'powder',  name:'Сыпучие'},
+  {id:'liquid',  name:'Жидкости'},
+  {id:'solid',   name:'Твёрдые'},
+  {id:'gas',     name:'Газы'},
+  {id:'energy',  name:'Энергия'},
+  {id:'special', name:'Особые'}
+];
+
+const elementsEl  = document.getElementById('elements');
+const catEl       = document.getElementById('categories');
+const brushEl     = document.getElementById('brush');
+const bvalEl      = document.getElementById('bval');
+const fpsEl       = document.getElementById('fps');
+const btnPause    = document.getElementById('btnPause');
+const btnClear    = document.getElementById('btnClear');
+const btnFull     = document.getElementById('btnFull');
+const btnHeat     = document.getElementById('btnHeat');
+const btnShare    = document.getElementById('btnShare');
+const btnCollapse = document.getElementById('btnCollapse');
+const bottomPanel = document.getElementById('bottomPanel');
+const fab         = document.getElementById('fab');
+const hintEl      = document.getElementById('hint');
+const toastEl     = document.getElementById('toast');
+
+const perfWarning  = document.getElementById('perfWarning');
+const perfFpsEl    = document.getElementById('perfFps');
+const perfPartsEl  = document.getElementById('perfParts');
+const perfContinue = document.getElementById('perfContinue');
+const perfClear    = document.getElementById('perfClear');
+
+const menuBtn   = document.getElementById('menuBtn');
+const menuPanel = document.getElementById('menuPanel');
+const mHeat     = document.getElementById('mHeat');
+const mPause    = document.getElementById('mPause');
+const mClear    = document.getElementById('mClear');
+const mFull     = document.getElementById('mFull');
+const mShare    = document.getElementById('mShare');
+
+let toastTimer = null;
+function showToast(msg){
+  toastEl.textContent = msg;
+  toastEl.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>toastEl.classList.remove('show'), 2200);
+}
+
+const catButtons = {};
+let activeCat = 'powder';
+
+CATEGORIES.forEach(c=>{
+  const b = document.createElement('div');
+  b.className = 'cat' + (c.id === activeCat ? ' active' : '');
+  b.textContent = c.name;
+  b.dataset.cat = c.id;
+  const h = (ev)=>{ ev.preventDefault(); setCategory(c.id); };
+  b.addEventListener('click', h);
+  b.addEventListener('touchstart', h, {passive:false});
+  catEl.appendChild(b);
+  catButtons[c.id] = b;
+});
+
+const buttons = {};
+UI_ELEMENTS.forEach(id=>{
+  const p = P[id];
+  const b = document.createElement('div');
+  b.className = 'el';
+  b.dataset.cat = p.cat;
+  b.innerHTML = '<span class="dot" style="background:' + p.css + '"></span>' + p.name;
+  const handler = (ev)=>{
+    ev.preventDefault();
+    selectElement(id);
+    if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+  };
+  b.addEventListener('click', handler);
+  b.addEventListener('touchstart', handler, {passive:false});
+  elementsEl.appendChild(b);
+  buttons[id] = b;
+});
+
+function setCategory(cid){
+  activeCat = cid;
+  let firstVisible = null;
+  for(const eid of UI_ELEMENTS){
+    const vis = P[eid].cat === cid;
+    buttons[eid].style.display = vis ? '' : 'none';
+    if(vis && firstVisible === null) firstVisible = eid;
+  }
+  for(const k in catButtons) catButtons[k].classList.toggle('active', k === cid);
+  if(P[currentEl].cat !== cid && firstVisible !== null){
+    selectElement(firstVisible);
+  }
+}
+
+function selectElement(id){
+  currentEl = id;
+  for(const k in buttons) buttons[k].classList.toggle('active', +k === id);
+}
+
+const BRUSH_MIN = 1;
+const BRUSH_MAX = 7;
+
+function setBrush(v){
+  brushSize = Math.max(BRUSH_MIN, Math.min(BRUSH_MAX, v));
+  brushEl.value = brushSize;
+  bvalEl.textContent = brushSize;
+}
+brushEl.addEventListener('input', ()=>{
+  brushSize = parseInt(brushEl.value,10);
+  bvalEl.textContent = brushSize;
+});
+document.getElementById('bminus').addEventListener('click', ()=>{
+  setBrush(brushSize - 1);
+  if(navigator.vibrate) try{ navigator.vibrate(6); }catch(_){}
+});
+document.getElementById('bplus').addEventListener('click', ()=>{
+  setBrush(brushSize + 1);
+  if(navigator.vibrate) try{ navigator.vibrate(6); }catch(_){}
+});
+
+let panelCollapsed = false;
+function setPanelCollapsed(v){
+  panelCollapsed = v;
+  bottomPanel.classList.toggle('hidden', v);
+  fab.classList.toggle('show', v);
+}
+function togglePanel(){ setPanelCollapsed(!panelCollapsed); }
+
+btnCollapse.addEventListener('click', ()=>{
+  setPanelCollapsed(true);
+  hideHint();
+  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+});
+fab.addEventListener('click', ()=>{
+  setPanelCollapsed(false);
+  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+});
+
+let hintHidden = false;
+function hideHint(){
+  if(hintHidden) return;
+  hintHidden = true;
+  hintEl.classList.add('gone');
+  setTimeout(()=>{ hintEl.style.display='none'; }, 1100);
+}
+
+function togglePause(){
+  paused = !paused;
+  btnPause.textContent = paused ? '▶' : '⏸';
+  btnPause.classList.toggle('active', paused);
+  mPause.classList.toggle('active', paused);
+  if(navigator.vibrate) try{ navigator.vibrate(10); }catch(_){}
+}
+btnPause.addEventListener('click', togglePause);
+mPause.addEventListener('click', ()=>{ togglePause(); closeMenu(); });
+
+/* ============================================================
+   ПОДСЧЁТ ЧАСТИЦ
+   ============================================================ */
+function countParts(){
+  let c = 0;
+  for(let i=0;i<N;i++) if(grid[i] !== E.EMPTY) c++;
+  return c;
+}
+
+/* ============================================================
+   ПРЕДУПРЕЖДЕНИЕ О НАГРУЗКЕ
+   ============================================================ */
+const FPS_DANGER = 15;         // порог срабатывания
+const FPS_SAMPLES_TO_TRIGGER = 2; // сколько подряд низких замеров нужно
+let lowFpsSamples = 0;
+let perfCooldownUntil = 0;     // до какого времени не триггерим снова
+
+function triggerPerfPause(currentFps){
+  perfPaused = true;
+  perfFpsEl.textContent = currentFps;
+  perfPartsEl.textContent = countParts().toLocaleString('ru-RU');
+  perfWarning.classList.add('show');
+  fpsEl.classList.add('danger');
+  if(navigator.vibrate) try{ navigator.vibrate([30, 60, 30]); }catch(_){}
+}
+
+function resumeFromPerf(){
+  perfPaused = false;
+  lowFpsSamples = 0;
+  // Даём симуляции 4 секунды спокойной работы, прежде чем снова триггерить
+  perfCooldownUntil = performance.now() + 4000;
+  perfWarning.classList.remove('show');
+  fpsEl.classList.remove('danger');
+  if(navigator.vibrate) try{ navigator.vibrate(8); }catch(_){}
+}
+
+perfContinue.addEventListener('click', resumeFromPerf);
+
+perfClear.addEventListener('click', ()=>{
+  // очищаем мир, снимаем паузу нагрузки
+  grid.fill(0); life.fill(0); dispX.fill(0);
+  temp.fill(AMBIENT); tempNext.fill(AMBIENT);
+  frame = 0;
+  resumeFromPerf();
+  if(navigator.vibrate) try{ navigator.vibrate(14); }catch(_){}
+  showToast('Мир очищен, продолжаем');
+});
+
+/* ============================================================
+   ОЧИСТКА
+   ============================================================ */
+function clearWorld(){
+  grid.fill(0); life.fill(0); dispX.fill(0);
+  temp.fill(AMBIENT); tempNext.fill(AMBIENT);
+  frame = 0;
+  // если открыто окно нагрузки — закрываем
+  if(perfPaused) resumeFromPerf();
+  lowFpsSamples = 0;
+  if(navigator.vibrate) try{ navigator.vibrate(14); }catch(_){}
+  showToast('Мир очищен');
+}
+btnClear.addEventListener('click', clearWorld);
+mClear.addEventListener('click', ()=>{ clearWorld(); closeMenu(); });
+
+function toggleFullscreen(){
+  const el = document.documentElement;
+  if(!document.fullscreenElement && !document.webkitFullscreenElement){
+    const req = el.requestFullscreen || el.webkitRequestFullscreen;
+    if(req) req.call(el).catch(()=>{});
+  } else {
+    const exit = document.exitFullscreen || document.webkitExitFullscreen;
+    if(exit) exit.call(document).catch(()=>{});
+  }
+}
+btnFull.addEventListener('click', toggleFullscreen);
+mFull.addEventListener('click', ()=>{ toggleFullscreen(); closeMenu(); });
+document.addEventListener('fullscreenchange', ()=>{ setTimeout(resize, 120); });
+document.addEventListener('webkitfullscreenchange', ()=>{ setTimeout(resize, 120); });
+
+async function shareWorld(){
+  const shareData = {
+    title: 'Песочница — Sandbox',
+    text: 'Игра-песочница с реалистичным взаимодействием веществ',
+    url: location.href
+  };
+  try{
+    if(navigator.share){
+      await navigator.share(shareData);
+      showToast('Отправлено');
+    } else if(navigator.clipboard){
+      await navigator.clipboard.writeText(location.href);
+      showToast('Ссылка скопирована');
+    } else {
+      const inp = document.createElement('input');
+      inp.value = location.href;
+      document.body.appendChild(inp);
+      inp.select();
+      try { document.execCommand('copy'); showToast('Ссылка скопирована'); }
+      catch(_) { showToast(location.href); }
+      document.body.removeChild(inp);
+    }
+  }catch(err){
+    if(err && err.name === 'AbortError') return;
+    showToast('Не удалось поделиться');
+  }
+}
+btnShare.addEventListener('click', shareWorld);
+mShare.addEventListener('click', ()=>{ shareWorld(); closeMenu(); });
+
+function toggleHeat(){
+  heatView = !heatView;
+  btnHeat.classList.toggle('active', heatView);
+  mHeat.classList.toggle('active', heatView);
+  if(navigator.vibrate) try{ navigator.vibrate(10); }catch(_){}
+}
+btnHeat.addEventListener('click', toggleHeat);
+mHeat.addEventListener('click', ()=>{ toggleHeat(); closeMenu(); });
+
+function openMenu(){
+  menuPanel.classList.add('show');
+  menuBtn.classList.add('active');
+}
+function closeMenu(){
+  menuPanel.classList.remove('show');
+  menuBtn.classList.remove('active');
+}
+menuBtn.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  if(menuPanel.classList.contains('show')) closeMenu();
+  else openMenu();
+});
+document.addEventListener('click', (e)=>{
+  if(!menuPanel.contains(e.target) && e.target !== menuBtn){
+    closeMenu();
+  }
+});
+
+/* ============================================================
+   ЦИКЛ
+   ============================================================ */
+let lastTime = performance.now();
+let acc = 0;
+const STEP = 1000/60;
+let fpsCount = 0, fpsTimer = 0;
+
+function loop(now){
+  requestAnimationFrame(loop);
+  let dt = now - lastTime; lastTime = now;
+  if(dt > 120) dt = 120;
+
+  // Симуляция идёт только если пользователь не поставил на паузу
+  // и не сработало авто-предупреждение о нагрузке
+  const simActive = !paused && !perfPaused;
+
+  acc += dt;
+  let steps = 0;
+  const maxSteps = N > 800000 ? 1 : (IS_TOUCH ? 2 : 3);
+  while(acc >= STEP && steps < maxSteps){
+    if(simActive){
+      diffuseHeat();
+      simulate();
+    }
+    acc -= STEP; steps++;
+  }
+  if(acc > STEP) acc = 0;
+
+  render();
+
+  // ============================================================
+  // ЗАМЕР FPS + АВТОПАУЗА
+  // ============================================================
+  fpsCount++;
+  fpsTimer += dt;
+  if(fpsTimer >= 500){
+    const fps = Math.round(fpsCount * 1000 / fpsTimer);
+    fpsEl.textContent = fps + ' FPS';
+    fpsCount = 0; fpsTimer = 0;
+
+    // Окрашиваем индикатор FPS
+    fpsEl.classList.remove('warn', 'danger');
+    if(fps < FPS_DANGER && !paused && !perfPaused){
+      fpsEl.classList.add('danger');
+    } else if(fps < 30){
+      fpsEl.classList.add('warn');
+    }
+
+    // Логика автопаузы
+    if(perfPaused){
+      // уже на паузе — счётчики не трогаем
+      lowFpsSamples = 0;
+    } else if(paused){
+      // ручная пауза — не триггерим
+      lowFpsSamples = 0;
+    } else if(now < perfCooldownUntil){
+      // период остывания после "Продолжить"
+      lowFpsSamples = 0;
+    } else if(fps < FPS_DANGER){
+      lowFpsSamples++;
+      if(lowFpsSamples >= FPS_SAMPLES_TO_TRIGGER){
+        triggerPerfPause(fps);
+        lowFpsSamples = 0;
+      }
+    } else {
+      lowFpsSamples = 0;
+    }
+  }
+}
+
+/* ============================================================
+   СТАРТ
+   ============================================================ */
+let resizeTimer = null;
+function onResize(){
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(resize, 160);
+}
+window.addEventListener('resize', onResize);
+window.addEventListener('orientationchange', ()=>{ setTimeout(resize, 220); });
+
+if(window.visualViewport){
+  let lastVH = window.visualViewport.height;
+  window.visualViewport.addEventListener('resize', ()=>{
+    const vh = window.visualViewport.height;
+    if(Math.abs(vh - lastVH) > 40){ lastVH = vh; onResize(); }
+  });
+}
+
+document.body.addEventListener('touchmove', e=>{
+  if(e.target === cvs) e.preventDefault();
+}, {passive:false});
+
+setBrush(brushSize);
+resize();
+setCategory('powder');
+setTimeout(hideHint, 9000);
+requestAnimationFrame(loop);
+
+})();
+</script>
+</body>
+</html>
